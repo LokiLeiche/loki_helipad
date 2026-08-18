@@ -1,0 +1,57 @@
+name: Release on Version Bump
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'fxmanifest.lua'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Version from fxmanifest.lua
+        id: get_version
+        run: |
+          # Extract version string regardless of single or double quotes
+          VERSION=$(grep -E "^\s*version\s+['\"][^'\"]+['\"]" fxmanifest.lua | sed -E "s/.*version\s+['\"]([^'\"]+)['\"].*/\1/")
+          
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not parse version from fxmanifest.lua"
+            exit 1
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Check if release already exists
+        id: check_tag
+        run: |
+          TAG_NAME="v${{ steps.get_version.outputs.VERSION }}"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "TAG_EXISTS=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG_NAME already exists. Skipping release creation."
+          else
+            echo "TAG_EXISTS=false" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.TAG_EXISTS == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.check_tag.outputs.TAG_NAME }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            --target main
