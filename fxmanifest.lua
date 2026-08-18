@@ -5,7 +5,7 @@ lua54 'yes'
 
 author 'Loki Scripts'
 description 'Helipad movement Script for any custom MLO'
-version '0.0.1'
+version '1.0.0'
 
 server_scripts {
     'config.lua',
